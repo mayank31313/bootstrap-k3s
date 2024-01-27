@@ -1,0 +1,35 @@
+- hosts: k3scluster
+  name: "Playbook"
+  become: true
+  tasks:
+    - name: Check directories
+      stat:
+        path: '{{ k3s_path }}'
+      register: directory_data
+
+    - debug: var=directory_data.stat.exists
+  
+    - name: Create directory if it doesn't already exist
+      file:
+        path: '{{ k3s_path }}'
+        state: directory
+      when: not directory_data.stat.exists
+
+    - name: Render Template Registry
+      ansible.builtin.template:
+        src: configs/registries.j2
+        dest: '{{ k3s_path }}/registries.yaml'
+
+    - name: Restart K3S
+      ansible.builtin.systemd_service:
+        state: restarted
+        daemon_reload: false
+        name: k3s
+      when: ansible_user == "kubemaster"
+    
+    - name: Restart K3S Agent
+      ansible.builtin.systemd_service:
+        state: restarted
+        daemon_reload: false
+        name: k3s-agent
+      when: ansible_user == "kubeworker"
